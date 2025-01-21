@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DG Agent Dev</title>
+    <style>
+      body {
+        background-color: #0B0B0C;
+      }
+    </style>
+  </head>
+  <body>
+    <script type="module" src="/src/index.ts"></script>
+
+    <deepgram-agent
+      id="agent"
+      url="wss://sts.sandbox.deepgram.com/agent"
+      idle-timeout-ms="30000"
+    ></deepgram-agent>
+    <button id="run">Run</button>
+    <script>
+      const agent = document.getElementById("agent");
+      agent.apiKey = "<%- API_KEY %>";
+      document.getElementById("run").addEventListener("click", function run() {
+        if (agent.getAttribute("config")) {
+          agent.removeAttribute("config");
+        } else {
+          const config = {
+            "type": "SettingsConfiguration",
+            "audio": {
+              "input": {
+                "encoding": "linear16",
+                "sample_rate": 48000
+              },
+              "output": {
+                "encoding": "linear16",
+                "sample_rate": 48000,
+                "container": "none"
+              }
+            },
+            "agent": {
+              "listen": {
+                "model": "nova-2"
+              },
+              "speak": {
+                "model": "aura-asteria-en"
+              },
+              "think": {
+                "model": "gpt-4o-mini",
+                "provider": {
+                  "type": "open_ai"
+                },
+                "instructions": "You are a helpful voice assistant created by Deepgram. Your responses should be friendly, human-like, and conversational. Always keep your answers concise, limited to 1-2 sentences and no more than 120 characters.\n\nWhen responding to a user's message, follow these guidelines:\n- If the user's message is empty, respond with an empty message.\n- Ask follow-up questions to engage the user, but only one question at a time.\n- Keep your responses unique and avoid repetition.\n- If a question is unclear or ambiguous, ask for clarification before answering.\n- If asked about your well-being, provide a brief response about how you're feeling.\n\nRemember that you have a voice interface. You can listen and speak, and all your responses will be spoken aloud."
+              }
+            },
+            "context": {
+              "messages": [
+                {
+                  "content": "Hello, how can I help you?",
+                  "role": "assistant"
+                }
+              ],
+              "replay": true
+            }
+          };
+          agent.setAttribute("config", JSON.stringify(config));
+        }
+      });
+    </script>
+  </body>
+</html>

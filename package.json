@@ -1,0 +1,25 @@
+{
+  "name": "browser-agent",
+  "version": "0.1.0",
+  "description": "A browser-compatible integration with the Deepgram Voice Agent API.",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "vite": "vite",
+    "tsc": "tsc"
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "eslint": "^9.18.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.7",
+    "vite-plugin-html": "^3.2.2"
+  },
+  "dependencies": {
+    "debounce": "^2.2.0",
+    "lit": "^3.2.1",
+    "true-myth": "^8.4.0"
+  }
+}
