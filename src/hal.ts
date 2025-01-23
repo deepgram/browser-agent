@@ -1,3 +1,6 @@
+import { type PropertyValues, html, LitElement } from "lit";
+import { customElement, property, query } from "lit/decorators.js";
+
 // The period for the constant pulsing when the agent is on.
 const PULSE_PERIOD_SECONDS = 3;
 // How much larger/smaller than "normal" size (as a percentage) the pulse gets.
@@ -72,6 +75,14 @@ export enum VoiceBotStatus {
   Sleeping = "sleeping",
   NotStarted = "not-started",
 }
+
+const statusFromAttr = (attr: string | null): VoiceBotStatus => {
+  if (Object.values(VoiceBotStatus).some((status) => status === attr)) {
+    return attr as VoiceBotStatus;
+  } else {
+    return VoiceBotStatus.NotStarted;
+  }
+};
 
 type Context = CanvasRenderingContext2D;
 
@@ -224,12 +235,6 @@ enum Color {
   darkBlue = "#4b3cffcc",
   purple = "#dd0070cc",
   transparent = "transparent",
-}
-
-enum Attributes {
-  orbState = "orb-state",
-  agentVolume = "agent-volume",
-  userVolume = "user-volume",
 }
 
 /**
@@ -458,58 +463,44 @@ const transition = (
   }
 };
 
-customElements.define(
-  "deepgram-hal",
-  class extends HTMLElement {
-    canvas: HTMLCanvasElement;
+// TODO joe: Hal is "never used", so i'm exporting it. but what's the right way
+// to do this?
+@customElement("deepgram-hal")
+export class Hal extends LitElement {
+  @property({ type: Number }) width = 0;
+  @property({ type: Number }) height = 0;
+  @property({ type: Number, attribute: "agent-volume" }) agentVolume = 0;
+  @property({ type: Number, attribute: "user-volume" }) userVolume = 0;
+  @property({ attribute: "orb-state", converter: statusFromAttr })
+  orbState = VoiceBotStatus.NotStarted;
 
-    shape: Shape;
+  @query("#canvas") canvas!: HTMLCanvasElement;
 
-    constructor() {
-      super();
-      this.canvas = document.createElement("canvas");
-      this.shape = {
-        generation: 0,
-        time: 0,
-        speed: speedOf(VoiceBotStatus.NotStarted),
-        rockingAngle: rockingAngle(VoiceBotStatus.NotStarted),
-        deflation: deflationDepth(VoiceBotStatus.NotStarted),
-        agentNoise: Array(
-          LINE_COUNT * CHATTER_FRAME_LAG + CHATTER_WINDOW_SIZE,
-        ).fill(0),
-        userNoise: Array(
-          LINE_COUNT * CHATTER_FRAME_LAG + CHATTER_WINDOW_SIZE,
-        ).fill(0),
-        end: false,
-      };
-    }
+  private shape: Shape = {
+    generation: 0,
+    time: 0,
+    speed: speedOf(this.orbState),
+    rockingAngle: rockingAngle(this.orbState),
+    deflation: deflationDepth(this.orbState),
+    agentNoise: Array(
+      LINE_COUNT * CHATTER_FRAME_LAG + CHATTER_WINDOW_SIZE,
+    ).fill(0),
+    userNoise: Array(LINE_COUNT * CHATTER_FRAME_LAG + CHATTER_WINDOW_SIZE).fill(
+      0,
+    ),
+    end: false,
+  };
 
-    connectedCallback() {
-      const orbState =
-        this.getAttribute(Attributes.orbState) || VoiceBotStatus.NotStarted;
-      const agentVolume =
-        Number(this.getAttribute(Attributes.agentVolume)) || 0;
-      const userVolume = Number(this.getAttribute(Attributes.userVolume)) || 0;
-      this.canvas.width = Number(this.getAttribute("width")) || 0;
-      this.canvas.height = Number(this.getAttribute("height")) || 0;
+  override render() {
+    return html`
+      <canvas width="${this.width}" height="${this.height}" id="canvas" />
+    `;
+  }
 
-      this.appendChild(this.canvas);
+  override connectedCallback() {
+    super.connectedCallback();
 
-      this.shape = {
-        generation: 0,
-        time: 0,
-        speed: speedOf(orbState),
-        rockingAngle: rockingAngle(orbState),
-        deflation: deflationDepth(orbState),
-        agentNoise: Array(
-          LINE_COUNT * CHATTER_FRAME_LAG + CHATTER_WINDOW_SIZE,
-        ).fill(agentVolume),
-        userNoise: Array(
-          LINE_COUNT * CHATTER_FRAME_LAG + CHATTER_WINDOW_SIZE,
-        ).fill(userVolume),
-        end: false,
-      };
-
+    requestAnimationFrame(() => {
       const ctx = this.canvas.getContext("2d");
       if (ctx) {
         const now = performance.now();
@@ -517,21 +508,20 @@ customElements.define(
           if (this.shape) draw(ctx, this.shape, now, t);
         });
       }
-    }
+    });
+  }
 
-    disconnectedCallback() {
-      this.shape.end = true;
-    }
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    this.shape.end = true;
+  }
 
-    static get observedAttributes() {
-      return Object.values(Attributes);
-    }
-
-    attributeChangedCallback(name: string, _: string, newValue: string) {
+  override updated(changed: PropertyValues<this>) {
+    changed.forEach((_prev: any, name: PropertyKey) => {
       switch (name) {
-        case Attributes.orbState:
+        case "orbState":
           this.shape.generation += 1;
-          this.shape.speed = speedOf(newValue);
+          this.shape.speed = speedOf(this.orbState);
           requestAnimationFrame((time) => {
             const start = {
               rockingAngle: this.shape.rockingAngle,
@@ -539,25 +529,25 @@ customElements.define(
               time,
             };
             const end = {
-              rockingAngle: rockingAngle(newValue),
-              deflation: deflationDepth(newValue),
+              rockingAngle: rockingAngle(this.orbState),
+              deflation: deflationDepth(this.orbState),
             };
             transition(this.shape.generation, start, end, this.shape);
           });
           break;
-        case Attributes.agentVolume:
-          if (Number.isNaN(Number(newValue))) break;
+        case "agentVolume":
+          if (Number.isNaN(this.agentVolume)) break;
           this.shape.agentNoise.shift();
-          this.shape.agentNoise.push(Number(newValue));
+          this.shape.agentNoise.push(Number(this.agentVolume));
           break;
-        case Attributes.userVolume:
-          if (Number.isNaN(Number(newValue))) break;
+        case "userVolume":
+          if (Number.isNaN(this.userVolume)) break;
           this.shape.userNoise.shift();
-          this.shape.userNoise.push(Number(newValue));
+          this.shape.userNoise.push(Number(this.userVolume));
           break;
         default:
           break;
       }
-    }
-  },
-);
+    });
+  }
+}

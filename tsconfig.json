@@ -1,6 +1,9 @@
 {
   "compilerOptions": {
     "lib": ["node", "dom", "dom.iterable", "esnext"],
+    "target": "es2017",
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
