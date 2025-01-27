@@ -188,7 +188,6 @@ enum Attributes {
 
 enum ObservedAttributes {
   config = "config",
-  usersideTts = "userside-tts",
   idleTimeoutMs = "idle-timeout-ms",
 }
 
@@ -550,27 +549,6 @@ customElements.define(
             this.hal.setAttribute("orb-state", VoiceBotStatus.Sleeping);
           } else if (newValue && this.socket) {
             this.restart();
-          }
-          break;
-
-        case ObservedAttributes.usersideTts:
-          if (newValue) {
-            /* eslint-disable no-console */
-            const tempContext = new AudioContextClass();
-            try {
-              const bytes = new Uint8Array(JSON.parse(newValue));
-
-              const buffer = await tempContext.decodeAudioData(bytes.buffer);
-              this.sendClientMessage(
-                convertFloat32ToInt16(buffer.getChannelData(0)),
-              );
-            } catch (e) {
-              console.warn("Failed to send userside TTS down the agent pipe");
-              console.error(e);
-            } finally {
-              tempContext.close();
-            }
-            /* eslint-enable no-console */
           }
           break;
 
