@@ -195,31 +195,24 @@ enum ObservedAttributes {
 customElements.define(
   "deepgram-agent",
   class AgentElement extends HTMLElement {
-    socket: WebSocket | null;
+    private socket: WebSocket | null;
 
-    microphone: MediaStreamAudioSourceNode | null;
+    private microphone: MediaStreamAudioSourceNode | null;
+    private processor: ScriptProcessorNode | undefined;
+    private scheduledPlaybackSources: Set<AudioBufferSourceNode>;
+    private startTime: number;
+    private ttsAnalyser: AnalyserNode | undefined;
+    private ttsContext: AudioContext | undefined;
+    private micAnalyser: AnalyserNode | undefined;
+    private micContext: AudioContext | undefined;
 
-    processor: ScriptProcessorNode | undefined;
-
-    scheduledPlaybackSources: Set<AudioBufferSourceNode>;
-
-    startTime: number;
-
-    ttsAnalyser: AnalyserNode | undefined;
-
-    ttsContext: AudioContext | undefined;
-
-    micAnalyser: AnalyserNode | undefined;
-
-    micContext: AudioContext | undefined;
-
-    hal: HTMLElement;
+    private hal: HTMLElement;
 
     apiKey: string | undefined;
 
-    activeSender: Sender | null;
+    private activeSender: Sender | null;
 
-    startIdleTimeout: DebouncedFunction<() => void>;
+    private startIdleTimeout: DebouncedFunction<() => void>;
 
     constructor() {
       super();
@@ -260,7 +253,7 @@ customElements.define(
       return Object.values(ObservedAttributes);
     }
 
-    replaceIdleTimeout(timeoutString: string | null) {
+    private replaceIdleTimeout(timeoutString: string | null) {
       if (Number.isNaN(Number(timeoutString))) return;
       this.startIdleTimeout.clear();
       this.startIdleTimeout = debounce(
@@ -269,7 +262,7 @@ customElements.define(
       );
     }
 
-    dispatch(variant: AgentEvent, detail?: object) {
+    private dispatch(variant: AgentEvent, detail?: object) {
       this.dispatchEvent(
         detail
           ? new CustomEvent(variant, { detail })
@@ -277,14 +270,17 @@ customElements.define(
       );
     }
 
-    sendClientMessage(socket: WebSocket, message: string) {
-      if (socket?.readyState === WebSocket.OPEN) {
-        socket.send(message);
-        this.dispatch(AgentEvent.CLIENT_MESSAGE, JSON.parse(message));
+    sendClientMessage(message: ArrayBuffer | string) {
+      if (this.socket?.readyState === WebSocket.OPEN) {
+        this.socket.send(message);
+        // Would consumers like us to emit something when audio is sent?
+        if (typeof message === "string") {
+          this.dispatch(AgentEvent.CLIENT_MESSAGE, JSON.parse(message));
+        }
       }
     }
 
-    connectNodes({
+    private connectNodes({
       microphone,
       processor,
       analyser,
@@ -306,29 +302,29 @@ customElements.define(
       return Result.ok({ microphone, processor, analyser });
     }
 
-    disconnectNodes() {
+    private disconnectNodes() {
       tryDisconnect(this.microphone, this.micAnalyser);
       tryDisconnect(this.microphone, this.processor);
       tryDisconnect(this.processor, this.micContext?.destination);
       tryDisconnect(this.ttsAnalyser, this.ttsContext?.destination);
     }
 
-    async suspendContext() {
+    private async suspendContext() {
       if (this.micContext) await this.micContext.suspend();
       if (this.ttsContext) await this.ttsContext.suspend();
     }
 
-    async resumeContext() {
+    private async resumeContext() {
       if (this.micContext) await this.micContext.resume();
       if (this.ttsContext) await this.ttsContext.resume();
     }
 
-    async closeContext() {
+    private async closeContext() {
       if (this.micContext) await this.micContext.close();
       if (this.ttsContext) await this.ttsContext.close();
     }
 
-    playAudio(data: ArrayBuffer) {
+    private playAudio(data: ArrayBuffer) {
       if (!this.ttsAnalyser) return;
       const { context } = this.ttsAnalyser;
 
@@ -365,7 +361,7 @@ customElements.define(
       this.scheduledPlaybackSources.add(source);
     }
 
-    checkAndHandleTtsPlaybackCompleted() {
+    private checkAndHandleTtsPlaybackCompleted() {
       if (
         this.scheduledPlaybackSources.size === 0 &&
         this.activeSender === null
@@ -374,11 +370,11 @@ customElements.define(
       }
     }
 
-    clearActiveSenderIf(activeSender: Sender) {
+    private clearActiveSenderIf(activeSender: Sender) {
       if (this.activeSender === activeSender) this.activeSender = null;
     }
 
-    handleSocketMessage(message: MessageEvent) {
+    private handleSocketMessage(message: MessageEvent) {
       if (message.data instanceof ArrayBuffer) {
         this.playAudio(message.data);
       } else {
@@ -481,7 +477,7 @@ customElements.define(
             this.socket = socket;
 
             this.dispatch(AgentEvent.SOCKET_OPEN);
-            this.sendClientMessage(socket, configString);
+            this.sendClientMessage(configString);
             this.startIdleTimeout();
 
             processor.addEventListener("audioprocess", sendMicToSocket);
@@ -495,18 +491,18 @@ customElements.define(
       );
     }
 
-    stopTts() {
+    private stopTts() {
       this.scheduledPlaybackSources.forEach((source) => source.stop());
       this.scheduledPlaybackSources.clear();
       this.startTime = -1;
     }
 
-    async clearMicrophone() {
+    private async clearMicrophone() {
       this.microphone?.mediaStream.getTracks().forEach((t) => t.stop());
       this.microphone = null;
     }
 
-    clearSocket(reason?: string) {
+    private clearSocket(reason?: string) {
       return new Promise<void>((resolve) => {
         if (this.socket?.readyState === WebSocket.OPEN) {
           this.socket.addEventListener("close", () => {
@@ -565,11 +561,9 @@ customElements.define(
               const bytes = new Uint8Array(JSON.parse(newValue));
 
               const buffer = await tempContext.decodeAudioData(bytes.buffer);
-              if (this.socket?.readyState === WebSocket.OPEN) {
-                this.socket.send(
-                  convertFloat32ToInt16(buffer.getChannelData(0)),
-                );
-              }
+              this.sendClientMessage(
+                convertFloat32ToInt16(buffer.getChannelData(0)),
+              );
             } catch (e) {
               console.warn("Failed to send userside TTS down the agent pipe");
               console.error(e);
