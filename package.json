@@ -19,7 +19,6 @@
   },
   "dependencies": {
     "debounce": "^2.2.0",
-    "lit": "^3.2.1",
     "true-myth": "^8.4.0"
   }
 }
