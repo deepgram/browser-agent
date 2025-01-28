@@ -61,6 +61,10 @@ Attributes section.
   - Timer starts whenever the user is expected to speak (meaning right when opening the connection,
     and right after each `AgentAudioDone` event).
 
+### Properties
+
+- `apiKey` (required): the key to use for accessing the Deepgram /agent API.
+
 ### Events
 
 As an experimental tech, the `deepgram-agent` element emits a variety of events. You're more likely
