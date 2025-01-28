@@ -269,7 +269,7 @@ customElements.define(
       );
     }
 
-    sendClientMessage(message: ArrayBuffer | string) {
+    sendClientMessage(message: ArrayBuffer | string): void {
       if (this.socket?.readyState === WebSocket.OPEN) {
         this.socket.send(message);
         // Would consumers like us to emit something when audio is sent?
@@ -407,7 +407,7 @@ customElements.define(
       }
     }
 
-    async connect() {
+    async connect(): Promise<void> {
       // Since multiple attributes/properties on the element can be changed "at once" when starting
       // the agent (with successive synchronous setAttribute() calls) and any of those changes may
       // have triggered the connect, wait until all such updates have been made before executing the
@@ -480,6 +480,8 @@ customElements.define(
             this.startIdleTimeout();
 
             processor.addEventListener("audioprocess", sendMicToSocket);
+
+            this.hal.setAttribute("orb-state", VoiceBotStatus.Active);
           },
           Err: async ({ variant, detail }) => {
             await this.disconnect();
@@ -521,12 +523,13 @@ customElements.define(
       });
     }
 
-    async disconnect(reason?: string) {
+    async disconnect(reason?: string): Promise<void> {
       this.stopTts();
       await this.suspendContext();
       this.disconnectNodes();
       await this.clearSocket(reason);
       await this.clearMicrophone();
+      this.hal.setAttribute("orb-state", VoiceBotStatus.Sleeping);
     }
 
     async restart() {
@@ -543,10 +546,8 @@ customElements.define(
         case ObservedAttributes.config:
           if (!oldValue && newValue) {
             await this.connect();
-            this.hal.setAttribute("orb-state", VoiceBotStatus.Active);
           } else if (oldValue && !newValue) {
             await this.disconnect();
-            this.hal.setAttribute("orb-state", VoiceBotStatus.Sleeping);
           } else if (newValue && this.socket) {
             this.restart();
           }
