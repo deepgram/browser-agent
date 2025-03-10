@@ -28,5 +28,5 @@
     "baseUrl": ".",
     "rootDir": "./src",
     "outDir": "./dist"
-  },
+  }
 }
