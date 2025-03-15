@@ -1,6 +1,12 @@
 import Result, { match } from "true-myth/result";
 import debounce, { type DebouncedFunction } from "debounce";
 import { VoiceBotStatus } from "./hal";
+import {
+  AudioContextClass,
+  firstChannelToArrayBuffer,
+  normalizeVolume,
+  createAnalyser,
+} from "./audio";
 
 enum AgentEvent {
   NO_KEY = "no key",
@@ -36,39 +42,12 @@ enum Sender {
   Agent,
 }
 
-const normalizeVolume = (
-  analyser: AnalyserNode,
-  dataArray: Uint8Array,
-  normalizationFactor: number,
-): number => {
-  analyser.getByteFrequencyData(dataArray);
-  const sum = dataArray.reduce((acc, val) => acc + val, 0);
-  const average = sum / dataArray.length;
-  return Math.min(average / normalizationFactor, 1);
-};
-
-const convertFloat32ToInt16 = (buffer: Float32Array): ArrayBuffer => {
-  const buf = new Int16Array(buffer.length);
-  for (let l = 0; l < buffer.length; l += 1) {
-    buf[l] = Math.min(1, buffer[l] ?? 0) * 0x7fff;
-  }
-  return buf.buffer;
-};
-
 const sendMicTo =
   (socket: WebSocket) =>
   (event: AudioProcessingEvent): void => {
-    const inputData = event.inputBuffer.getChannelData(0);
-    const audioDataToSend = convertFloat32ToInt16(inputData);
+    const audioDataToSend = firstChannelToArrayBuffer(event.inputBuffer);
     if (socket.readyState === WebSocket.OPEN) socket.send(audioDataToSend);
   };
-
-const createAnalyser = (context: AudioContext): AnalyserNode => {
-  const analyser = context.createAnalyser();
-  analyser.fftSize = 2048;
-  analyser.smoothingTimeConstant = 0.96;
-  return analyser;
-};
 
 const tryDisconnect = (source?: AudioNode | null, destination?: AudioNode) => {
   if (!source || !destination) return;
@@ -136,10 +115,6 @@ const sendVolumeUpdates = (
   };
   getVolume();
 };
-
-const AudioContextClass =
-  window.AudioContext ||
-  (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
 
 const openWebSocket = async (
   url: string,
