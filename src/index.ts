@@ -1,4 +1,4 @@
-import Result, { match } from "true-myth/result";
+import { Result } from "true-myth";
 import debounce, { type DebouncedFunction } from "debounce";
 import { VoiceBotStatus } from "./hal";
 import {
@@ -428,7 +428,7 @@ customElements.define(
         ]),
       );
 
-      match(
+      nodesAndMicAndConfigString.match(
         {
           Ok: ([{ processor, analyser }, socket, configString]: [
             UserMediaNodes,
@@ -463,7 +463,6 @@ customElements.define(
             this.dispatch(variant, detail);
           },
         },
-        nodesAndMicAndConfigString,
       );
     }
 
