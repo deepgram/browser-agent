@@ -4,8 +4,8 @@ A pair of experimental web components for integrating with Deepgram's Voice Agen
 
 - The agent component is an all-in-one web component that manages the microphone, websocket, and
   animation. Add it to any page and get chatting!
-- The hal component is the animation, standalone. More useful when you've got your own rules for socket
-  integration, and just want the look and feel!
+- The hoop component is the animation, standalone. More useful when you've got your own rules for
+  socket integration, and just want the look and feel!
 
 ## Installation
 
@@ -115,30 +115,30 @@ disconnect(reason?: string): Promise<void> {}
 
 Use this to explicitly disconnect. Prefer to handle this by _removing_ the `config` attribute.
 
-## Using the hal component
+## Using the hoop component
 
-The animation alone is available as a granular import, automatically registered as `deepgram-hal`:
+The animation alone is available as a granular import, automatically registered as `deepgram-hoop`:
 
 ```js
-import "@deepgram/browser-agent/hal";
+import "@deepgram/browser-agent/hoop";
 ```
 
 Then, render it where you like!
 
 ```html
   <body>
-    <deepgram-hal
-      id="dg-hal"
+    <deepgram-hoop
+      id="dg-hoop"
       height="300"
       width="300"
       orb-state="active"
-    ></deepgram-hal>
+    ></deepgram-hoop>
   </body>
 ```
 
 ### Feeding audio data
 
-The hal component applies some size oscillation based on audio information:
+The hoop component applies some size oscillation based on audio information:
 
 - The output, i.e. agent audio (`agent-volume` attribute) expands
 - The input, i.e. user audio (`user-volume` attribute) collapses

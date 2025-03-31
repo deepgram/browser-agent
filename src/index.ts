@@ -1,6 +1,6 @@
 import { Result } from "true-myth";
 import debounce, { type DebouncedFunction } from "debounce";
-import { VoiceBotStatus } from "./hal";
+import { VoiceBotStatus } from "./hoop";
 import {
   AudioContextClass,
   firstChannelToArrayBuffer,
@@ -100,13 +100,13 @@ const getConfigString = (
 
 const sendVolumeUpdates = (
   analyser: AnalyserNode,
-  hal: HTMLElement,
+  hoop: HTMLElement,
   attributeName: string,
 ) => {
   const dataArray = new Uint8Array(analyser.frequencyBinCount);
   const getVolume = () => {
-    if (hal.getAttribute("orb-state") === VoiceBotStatus.Active) {
-      hal.setAttribute(
+    if (hoop.getAttribute("orb-state") === VoiceBotStatus.Active) {
+      hoop.setAttribute(
         attributeName,
         normalizeVolume(analyser, dataArray, 48).toString(),
       );
@@ -180,7 +180,7 @@ customElements.define(
     private micAnalyser: AnalyserNode | undefined;
     private micContext: AudioContext | undefined;
 
-    private hal: HTMLElement;
+    private hoop: HTMLElement;
 
     apiKey: string | undefined;
 
@@ -198,7 +198,7 @@ customElements.define(
       this.scheduledPlaybackSources = new Set();
       this.startTime = -1;
       this.activeSender = null;
-      this.hal = document.createElement("deepgram-hal");
+      this.hoop = document.createElement("deepgram-hoop");
 
       try {
         if (!AudioContextClass) {
@@ -215,7 +215,7 @@ customElements.define(
 
         this.micContext = new AudioContextClass();
 
-        sendVolumeUpdates(this.ttsAnalyser, this.hal, "agent-volume");
+        sendVolumeUpdates(this.ttsAnalyser, this.hoop, "agent-volume");
       } catch {
         this.dispatch(AgentEvent.FAILED_SETUP);
       }
@@ -270,8 +270,8 @@ customElements.define(
       this.microphone.connect(this.processor);
       this.processor.connect(this.micContext.destination);
       this.ttsAnalyser.connect(this.ttsContext.destination);
-      sendVolumeUpdates(this.micAnalyser, this.hal, "user-volume");
-      sendVolumeUpdates(this.ttsAnalyser, this.hal, "agent-volume");
+      sendVolumeUpdates(this.micAnalyser, this.hoop, "user-volume");
+      sendVolumeUpdates(this.ttsAnalyser, this.hoop, "agent-volume");
 
       return Result.ok({ microphone, processor, analyser });
     }
@@ -435,7 +435,7 @@ customElements.define(
             WebSocket,
             string,
           ]) => {
-            sendVolumeUpdates(analyser, this.hal, "user-volume");
+            sendVolumeUpdates(analyser, this.hoop, "user-volume");
 
             const sendMicToSocket = sendMicTo(socket);
 
@@ -456,7 +456,7 @@ customElements.define(
 
             processor.addEventListener("audioprocess", sendMicToSocket);
 
-            this.hal.setAttribute("orb-state", VoiceBotStatus.Active);
+            this.hoop.setAttribute("orb-state", VoiceBotStatus.Active);
           },
           Err: async ({ variant, detail }) => {
             await this.disconnect();
@@ -503,7 +503,7 @@ customElements.define(
       this.disconnectNodes();
       await this.clearSocket(reason);
       await this.clearMicrophone();
-      this.hal.setAttribute("orb-state", VoiceBotStatus.Sleeping);
+      this.hoop.setAttribute("orb-state", VoiceBotStatus.Sleeping);
     }
 
     async restart() {
@@ -542,18 +542,18 @@ customElements.define(
     }
 
     async connectedCallback() {
-      this.hal.setAttribute("agent-volume", "0");
-      this.hal.setAttribute("user-volume", "0");
-      this.hal.setAttribute("orb-state", VoiceBotStatus.NotStarted);
-      this.hal.setAttribute(
+      this.hoop.setAttribute("agent-volume", "0");
+      this.hoop.setAttribute("user-volume", "0");
+      this.hoop.setAttribute("orb-state", VoiceBotStatus.NotStarted);
+      this.hoop.setAttribute(
         "height",
         this.getAttribute(Attributes.height) ?? "200",
       );
-      this.hal.setAttribute(
+      this.hoop.setAttribute(
         "width",
         this.getAttribute(Attributes.width) ?? "300",
       );
-      this.appendChild(this.hal);
+      this.appendChild(this.hoop);
 
       this.replaceIdleTimeout(
         this.getAttribute(ObservedAttributes.idleTimeoutMs),

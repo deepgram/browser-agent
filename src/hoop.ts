@@ -459,7 +459,7 @@ const transition = (
 };
 
 customElements.define(
-  "deepgram-hal",
+  "deepgram-hoop",
   class extends HTMLElement {
     canvas: HTMLCanvasElement;
 
