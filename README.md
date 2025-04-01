@@ -131,7 +131,7 @@ Then, render it where you like!
       id="dg-hoop"
       height="300"
       width="300"
-      orb-state="active"
+      status="active"
     ></deepgram-hoop>
   </body>
 ```

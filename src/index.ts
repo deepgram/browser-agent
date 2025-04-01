@@ -1,6 +1,6 @@
 import { Result } from "true-myth";
 import debounce, { type DebouncedFunction } from "debounce";
-import { VoiceBotStatus } from "./hoop";
+import * as Hoop from "./hoop";
 import {
   AudioContextClass,
   firstChannelToArrayBuffer,
@@ -100,12 +100,14 @@ const getConfigString = (
 
 const sendVolumeUpdates = (
   analyser: AnalyserNode,
-  hoop: HTMLElement,
+  hoop: Hoop.Hoop,
   attributeName: string,
 ) => {
   const dataArray = new Uint8Array(analyser.frequencyBinCount);
   const getVolume = () => {
-    if (hoop.getAttribute("orb-state") === VoiceBotStatus.Active) {
+    if (
+      hoop.getAttribute(Hoop.Attributes.status) === Hoop.VoiceBotStatus.Active
+    ) {
       hoop.setAttribute(
         attributeName,
         normalizeVolume(analyser, dataArray, 48).toString(),
@@ -180,7 +182,7 @@ customElements.define(
     private micAnalyser: AnalyserNode | undefined;
     private micContext: AudioContext | undefined;
 
-    private hoop: HTMLElement;
+    private hoop: Hoop.Hoop;
 
     apiKey: string | undefined;
 
@@ -198,7 +200,7 @@ customElements.define(
       this.scheduledPlaybackSources = new Set();
       this.startTime = -1;
       this.activeSender = null;
-      this.hoop = document.createElement("deepgram-hoop");
+      this.hoop = Hoop.Hoop.create();
 
       try {
         if (!AudioContextClass) {
@@ -215,7 +217,11 @@ customElements.define(
 
         this.micContext = new AudioContextClass();
 
-        sendVolumeUpdates(this.ttsAnalyser, this.hoop, "agent-volume");
+        sendVolumeUpdates(
+          this.ttsAnalyser,
+          this.hoop,
+          Hoop.Attributes.agentVolume,
+        );
       } catch {
         this.dispatch(AgentEvent.FAILED_SETUP);
       }
@@ -270,8 +276,16 @@ customElements.define(
       this.microphone.connect(this.processor);
       this.processor.connect(this.micContext.destination);
       this.ttsAnalyser.connect(this.ttsContext.destination);
-      sendVolumeUpdates(this.micAnalyser, this.hoop, "user-volume");
-      sendVolumeUpdates(this.ttsAnalyser, this.hoop, "agent-volume");
+      sendVolumeUpdates(
+        this.micAnalyser,
+        this.hoop,
+        Hoop.Attributes.userVolume,
+      );
+      sendVolumeUpdates(
+        this.ttsAnalyser,
+        this.hoop,
+        Hoop.Attributes.agentVolume,
+      );
 
       return Result.ok({ microphone, processor, analyser });
     }
@@ -435,7 +449,7 @@ customElements.define(
             WebSocket,
             string,
           ]) => {
-            sendVolumeUpdates(analyser, this.hoop, "user-volume");
+            sendVolumeUpdates(analyser, this.hoop, Hoop.Attributes.userVolume);
 
             const sendMicToSocket = sendMicTo(socket);
 
@@ -456,7 +470,7 @@ customElements.define(
 
             processor.addEventListener("audioprocess", sendMicToSocket);
 
-            this.hoop.setAttribute("orb-state", VoiceBotStatus.Active);
+            this.hoop.setStatus(Hoop.VoiceBotStatus.Active);
           },
           Err: async ({ variant, detail }) => {
             await this.disconnect();
@@ -503,7 +517,7 @@ customElements.define(
       this.disconnectNodes();
       await this.clearSocket(reason);
       await this.clearMicrophone();
-      this.hoop.setAttribute("orb-state", VoiceBotStatus.Sleeping);
+      this.hoop.setStatus(Hoop.VoiceBotStatus.Sleeping);
     }
 
     async restart() {
@@ -542,9 +556,9 @@ customElements.define(
     }
 
     async connectedCallback() {
-      this.hoop.setAttribute("agent-volume", "0");
-      this.hoop.setAttribute("user-volume", "0");
-      this.hoop.setAttribute("orb-state", VoiceBotStatus.NotStarted);
+      this.hoop.setAttribute(Hoop.Attributes.agentVolume, "0");
+      this.hoop.setAttribute(Hoop.Attributes.userVolume, "0");
+      this.hoop.setStatus(Hoop.VoiceBotStatus.NotStarted);
       this.hoop.setAttribute(
         "height",
         this.getAttribute(Attributes.height) ?? "200",
