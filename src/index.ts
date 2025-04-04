@@ -168,410 +168,393 @@ enum ObservedAttributes {
   idleTimeoutMs = "idle-timeout-ms",
 }
 
-customElements.define(
-  "deepgram-agent",
-  class AgentElement extends HTMLElement {
-    private socket: WebSocket | null;
+export class AgentElement extends HTMLElement {
+  private socket: WebSocket | null;
 
-    private microphone: MediaStreamAudioSourceNode | null;
-    private processor: ScriptProcessorNode | undefined;
-    private scheduledPlaybackSources: Set<AudioBufferSourceNode>;
-    private startTime: number;
-    private ttsAnalyser: AnalyserNode | undefined;
-    private ttsContext: AudioContext | undefined;
-    private micAnalyser: AnalyserNode | undefined;
-    private micContext: AudioContext | undefined;
+  private microphone: MediaStreamAudioSourceNode | null;
+  private processor: ScriptProcessorNode | undefined;
+  private scheduledPlaybackSources: Set<AudioBufferSourceNode>;
+  private startTime: number;
+  private ttsAnalyser: AnalyserNode | undefined;
+  private ttsContext: AudioContext | undefined;
+  private micAnalyser: AnalyserNode | undefined;
+  private micContext: AudioContext | undefined;
 
-    private hoop: Hoop.Hoop;
+  private hoop: Hoop.Hoop;
 
-    apiKey: string | undefined;
+  apiKey: string | undefined;
 
-    private activeSender: Sender | null;
+  private activeSender: Sender | null;
 
-    private startIdleTimeout: DebouncedFunction<() => void>;
+  private startIdleTimeout: DebouncedFunction<() => void>;
 
-    constructor() {
-      super();
-      this.socket = null;
-      this.microphone = null;
+  constructor() {
+    super();
+    this.socket = null;
+    this.microphone = null;
 
-      // unlike the socket and the mic setup, we can leave the tts context
-      // sitting around
-      this.scheduledPlaybackSources = new Set();
-      this.startTime = -1;
-      this.activeSender = null;
-      this.hoop = Hoop.Hoop.create();
+    // unlike the socket and the mic setup, we can leave the tts context
+    // sitting around
+    this.scheduledPlaybackSources = new Set();
+    this.startTime = -1;
+    this.activeSender = null;
+    this.hoop = Hoop.Hoop.create();
 
-      try {
-        if (!AudioContextClass) {
-          throw new Error("Web Audio API is not supported in this browser");
-        }
-        this.ttsContext = new AudioContextClass({
-          latencyHint: "interactive",
-          // might be nice to delegate to the machine here, but the /agent API
-          // doesn't seem to tolerate a 44.1k sample rate for output
-          sampleRate: 48000,
-        });
-        this.ttsAnalyser = createAnalyser(this.ttsContext);
-        // this.ttsAnalyser.connect(this.ttsContext.destination);
-
-        this.micContext = new AudioContextClass();
-
-        sendVolumeUpdates(
-          this.ttsAnalyser,
-          this.hoop,
-          Hoop.Attributes.agentVolume,
-        );
-      } catch {
-        this.dispatch(AgentEvent.FAILED_SETUP);
+    try {
+      if (!AudioContextClass) {
+        throw new Error("Web Audio API is not supported in this browser");
       }
+      this.ttsContext = new AudioContextClass({
+        latencyHint: "interactive",
+        // might be nice to delegate to the machine here, but the /agent API
+        // doesn't seem to tolerate a 44.1k sample rate for output
+        sampleRate: 48000,
+      });
+      this.ttsAnalyser = createAnalyser(this.ttsContext);
+      // this.ttsAnalyser.connect(this.ttsContext.destination);
 
-      this.startIdleTimeout = debounce(() => {}, 0);
-    }
+      this.micContext = new AudioContextClass();
 
-    static get observedAttributes() {
-      return Object.values(ObservedAttributes);
-    }
-
-    private replaceIdleTimeout(timeoutString: string | null) {
-      if (Number.isNaN(Number(timeoutString))) return;
-      this.startIdleTimeout.clear();
-      this.startIdleTimeout = debounce(
-        () => this.disconnect("idle timeout"),
-        Number(timeoutString),
-      );
-    }
-
-    private dispatch(variant: AgentEvent, detail?: object) {
-      this.dispatchEvent(
-        detail
-          ? new CustomEvent(variant, { detail })
-          : new CustomEvent(variant),
-      );
-    }
-
-    sendClientMessage(message: ArrayBuffer | string): void {
-      if (this.socket?.readyState === WebSocket.OPEN) {
-        this.socket.send(message);
-        // Would consumers like us to emit something when audio is sent?
-        if (typeof message === "string") {
-          this.dispatch(AgentEvent.CLIENT_MESSAGE, JSON.parse(message));
-        }
-      }
-    }
-
-    private connectNodes({
-      microphone,
-      processor,
-      analyser,
-    }: UserMediaNodes): Result<UserMediaNodes, AgentEventDetail> {
-      this.microphone = microphone;
-      this.processor = processor;
-      this.micAnalyser = analyser;
-
-      if (!this.micContext || !this.ttsAnalyser || !this.ttsContext) {
-        return Result.err({ variant: AgentEvent.FAILED_SETUP });
-      }
-      this.microphone.connect(this.micAnalyser);
-      this.microphone.connect(this.processor);
-      this.processor.connect(this.micContext.destination);
-      this.ttsAnalyser.connect(this.ttsContext.destination);
-      sendVolumeUpdates(
-        this.micAnalyser,
-        this.hoop,
-        Hoop.Attributes.userVolume,
-      );
       sendVolumeUpdates(
         this.ttsAnalyser,
         this.hoop,
         Hoop.Attributes.agentVolume,
       );
-
-      return Result.ok({ microphone, processor, analyser });
+    } catch {
+      this.dispatch(AgentEvent.FAILED_SETUP);
     }
 
-    private disconnectNodes() {
-      tryDisconnect(this.microphone, this.micAnalyser);
-      tryDisconnect(this.microphone, this.processor);
-      tryDisconnect(this.processor, this.micContext?.destination);
-      tryDisconnect(this.ttsAnalyser, this.ttsContext?.destination);
-    }
+    this.startIdleTimeout = debounce(() => {}, 0);
+  }
 
-    private async suspendContext() {
-      if (this.micContext) await this.micContext.suspend();
-      if (this.ttsContext) await this.ttsContext.suspend();
-    }
+  static get observedAttributes() {
+    return Object.values(ObservedAttributes);
+  }
 
-    private async resumeContext() {
-      if (this.micContext) await this.micContext.resume();
-      if (this.ttsContext) await this.ttsContext.resume();
-    }
+  private replaceIdleTimeout(timeoutString: string | null) {
+    if (Number.isNaN(Number(timeoutString))) return;
+    this.startIdleTimeout.clear();
+    this.startIdleTimeout = debounce(
+      () => this.disconnect("idle timeout"),
+      Number(timeoutString),
+    );
+  }
 
-    private async closeContext() {
-      if (this.micContext) await this.micContext.close();
-      if (this.ttsContext) await this.ttsContext.close();
-    }
+  private dispatch(variant: AgentEvent, detail?: object) {
+    this.dispatchEvent(
+      detail ? new CustomEvent(variant, { detail }) : new CustomEvent(variant),
+    );
+  }
 
-    private playAudio(data: ArrayBuffer) {
-      if (!this.ttsAnalyser) return;
-      const { context } = this.ttsAnalyser;
-
-      const audioDataView = new Int16Array(data);
-      if (audioDataView.length === 0) {
-        this.dispatch(AgentEvent.EMPTY_AUDIO);
-        return;
-      }
-
-      const buffer = context.createBuffer(1, audioDataView.length, 48000);
-      const channelData = buffer.getChannelData(0);
-
-      // Convert linear16 PCM to float [-1, 1]
-      audioDataView.forEach((value, index) => {
-        channelData[index] = value / 32768;
-      });
-
-      const source = context.createBufferSource();
-      source.buffer = buffer;
-      source.connect(this.ttsAnalyser);
-
-      const { currentTime } = context;
-      if (this.startTime < currentTime) {
-        this.startTime = currentTime;
-      }
-
-      source.addEventListener("ended", () => {
-        this.scheduledPlaybackSources.delete(source);
-        this.checkAndHandleTtsPlaybackCompleted();
-      });
-      source.start(this.startTime);
-      this.startTime += buffer.duration;
-
-      this.scheduledPlaybackSources.add(source);
-    }
-
-    private checkAndHandleTtsPlaybackCompleted() {
-      if (
-        this.scheduledPlaybackSources.size === 0 &&
-        this.activeSender === null
-      ) {
-        this.startIdleTimeout();
+  sendClientMessage(message: ArrayBuffer | string): void {
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      this.socket.send(message);
+      // Would consumers like us to emit something when audio is sent?
+      if (typeof message === "string") {
+        this.dispatch(AgentEvent.CLIENT_MESSAGE, JSON.parse(message));
       }
     }
+  }
 
-    private clearActiveSenderIf(activeSender: Sender) {
-      if (this.activeSender === activeSender) this.activeSender = null;
+  private connectNodes({
+    microphone,
+    processor,
+    analyser,
+  }: UserMediaNodes): Result<UserMediaNodes, AgentEventDetail> {
+    this.microphone = microphone;
+    this.processor = processor;
+    this.micAnalyser = analyser;
+
+    if (!this.micContext || !this.ttsAnalyser || !this.ttsContext) {
+      return Result.err({ variant: AgentEvent.FAILED_SETUP });
+    }
+    this.microphone.connect(this.micAnalyser);
+    this.microphone.connect(this.processor);
+    this.processor.connect(this.micContext.destination);
+    this.ttsAnalyser.connect(this.ttsContext.destination);
+    sendVolumeUpdates(this.micAnalyser, this.hoop, Hoop.Attributes.userVolume);
+    sendVolumeUpdates(this.ttsAnalyser, this.hoop, Hoop.Attributes.agentVolume);
+
+    return Result.ok({ microphone, processor, analyser });
+  }
+
+  private disconnectNodes() {
+    tryDisconnect(this.microphone, this.micAnalyser);
+    tryDisconnect(this.microphone, this.processor);
+    tryDisconnect(this.processor, this.micContext?.destination);
+    tryDisconnect(this.ttsAnalyser, this.ttsContext?.destination);
+  }
+
+  private async suspendContext() {
+    if (this.micContext) await this.micContext.suspend();
+    if (this.ttsContext) await this.ttsContext.suspend();
+  }
+
+  private async resumeContext() {
+    if (this.micContext) await this.micContext.resume();
+    if (this.ttsContext) await this.ttsContext.resume();
+  }
+
+  private async closeContext() {
+    if (this.micContext) await this.micContext.close();
+    if (this.ttsContext) await this.ttsContext.close();
+  }
+
+  private playAudio(data: ArrayBuffer) {
+    if (!this.ttsAnalyser) return;
+    const { context } = this.ttsAnalyser;
+
+    const audioDataView = new Int16Array(data);
+    if (audioDataView.length === 0) {
+      this.dispatch(AgentEvent.EMPTY_AUDIO);
+      return;
     }
 
-    private handleSocketMessage(message: MessageEvent) {
-      if (message.data instanceof ArrayBuffer) {
-        this.playAudio(message.data);
-      } else {
-        try {
-          const data = JSON.parse(message.data);
+    const buffer = context.createBuffer(1, audioDataView.length, 48000);
+    const channelData = buffer.getChannelData(0);
 
-          switch (data.type) {
-            case MessageType.UserStartedSpeaking:
-              this.activeSender = Sender.User;
-              this.stopTts();
-              this.startIdleTimeout.clear();
-              break;
-            case MessageType.EndOfThought:
-              this.clearActiveSenderIf(Sender.User);
-              break;
-            case MessageType.AgentStartedSpeaking:
-              this.activeSender = Sender.Agent;
-              break;
-            case MessageType.AgentAudioDone:
-              this.clearActiveSenderIf(Sender.Agent);
-              this.checkAndHandleTtsPlaybackCompleted();
-              break;
-            default:
-              break;
-          }
+    // Convert linear16 PCM to float [-1, 1]
+    audioDataView.forEach((value, index) => {
+      channelData[index] = value / 32768;
+    });
 
-          this.dispatch(AgentEvent.STRUCTURED_MESSAGE, data);
-        } catch {
-          this.dispatch(AgentEvent.UNKNOWN_MESSAGE);
+    const source = context.createBufferSource();
+    source.buffer = buffer;
+    source.connect(this.ttsAnalyser);
+
+    const { currentTime } = context;
+    if (this.startTime < currentTime) {
+      this.startTime = currentTime;
+    }
+
+    source.addEventListener("ended", () => {
+      this.scheduledPlaybackSources.delete(source);
+      this.checkAndHandleTtsPlaybackCompleted();
+    });
+    source.start(this.startTime);
+    this.startTime += buffer.duration;
+
+    this.scheduledPlaybackSources.add(source);
+  }
+
+  private checkAndHandleTtsPlaybackCompleted() {
+    if (
+      this.scheduledPlaybackSources.size === 0 &&
+      this.activeSender === null
+    ) {
+      this.startIdleTimeout();
+    }
+  }
+
+  private clearActiveSenderIf(activeSender: Sender) {
+    if (this.activeSender === activeSender) this.activeSender = null;
+  }
+
+  private handleSocketMessage(message: MessageEvent) {
+    if (message.data instanceof ArrayBuffer) {
+      this.playAudio(message.data);
+    } else {
+      try {
+        const data = JSON.parse(message.data);
+
+        switch (data.type) {
+          case MessageType.UserStartedSpeaking:
+            this.activeSender = Sender.User;
+            this.stopTts();
+            this.startIdleTimeout.clear();
+            break;
+          case MessageType.EndOfThought:
+            this.clearActiveSenderIf(Sender.User);
+            break;
+          case MessageType.AgentStartedSpeaking:
+            this.activeSender = Sender.Agent;
+            break;
+          case MessageType.AgentAudioDone:
+            this.clearActiveSenderIf(Sender.Agent);
+            this.checkAndHandleTtsPlaybackCompleted();
+            break;
+          default:
+            break;
         }
+
+        this.dispatch(AgentEvent.STRUCTURED_MESSAGE, data);
+      } catch {
+        this.dispatch(AgentEvent.UNKNOWN_MESSAGE);
       }
     }
+  }
 
-    async connect(): Promise<void> {
-      // Since multiple attributes/properties on the element can be changed "at once" when starting
-      // the agent (with successive synchronous setAttribute() calls) and any of those changes may
-      // have triggered the connect, wait until all such updates have been made before executing the
-      // connect routine, so we're sure we have all the current values.
-      await Promise.resolve();
+  async connect(): Promise<void> {
+    // Since multiple attributes/properties on the element can be changed "at once" when starting
+    // the agent (with successive synchronous setAttribute() calls) and any of those changes may
+    // have triggered the connect, wait until all such updates have been made before executing the
+    // connect routine, so we're sure we have all the current values.
+    await Promise.resolve();
 
-      const { apiKey } = this;
-      if (apiKey === undefined) {
-        this.dispatch(AgentEvent.NO_KEY);
-        return;
-      }
-      const url = this.getAttribute(Attributes.url);
-      if (!url) {
-        this.dispatch(AgentEvent.NO_URL);
-        return;
-      }
-      const configAttr = this.getAttribute(ObservedAttributes.config);
-      if (!configAttr) {
-        this.dispatch(AgentEvent.NO_CONFIG);
-        return;
-      }
-
-      if (!this.micContext || !this.ttsContext || !this.ttsAnalyser) {
-        this.dispatch(AgentEvent.FAILED_SETUP);
-        return;
-      }
-
-      await this.resumeContext();
-
-      const nodesAndMicAndConfigString: Result<
-        [UserMediaNodes, WebSocket, string],
-        AgentEventDetail
-      > = pairResults(
-        (await getNodes(this.micContext)).andThen((nodes) =>
-          this.connectNodes(nodes),
-        ),
-        await openWebSocket(url, apiKey),
-      ).andThen(([nodes, socket]) =>
-        getConfigString(configAttr).map((configString) => [
-          nodes,
-          socket,
-          configString,
-        ]),
-      );
-
-      nodesAndMicAndConfigString.match(
-        {
-          Ok: ([{ processor, analyser }, socket, configString]: [
-            UserMediaNodes,
-            WebSocket,
-            string,
-          ]) => {
-            sendVolumeUpdates(analyser, this.hoop, Hoop.Attributes.userVolume);
-
-            const sendMicToSocket = sendMicTo(socket);
-
-            socket.addEventListener("close", (event: CloseEvent) => {
-              this.dispatch(AgentEvent.SOCKET_CLOSE, event);
-              processor.removeEventListener("audioprocess", sendMicToSocket);
-              this.startIdleTimeout.clear();
-            });
-            socket.addEventListener(
-              "message",
-              this.handleSocketMessage.bind(this),
-            );
-            this.socket = socket;
-
-            this.dispatch(AgentEvent.SOCKET_OPEN);
-            this.sendClientMessage(configString);
-            this.startIdleTimeout();
-
-            processor.addEventListener("audioprocess", sendMicToSocket);
-
-            this.hoop.setStatus(Hoop.VoiceBotStatus.Active);
-          },
-          Err: async ({ variant, detail }) => {
-            await this.disconnect();
-            this.dispatch(variant, detail);
-          },
-        },
-      );
+    const { apiKey } = this;
+    if (apiKey === undefined) {
+      this.dispatch(AgentEvent.NO_KEY);
+      return;
+    }
+    const url = this.getAttribute(Attributes.url);
+    if (!url) {
+      this.dispatch(AgentEvent.NO_URL);
+      return;
+    }
+    const configAttr = this.getAttribute(ObservedAttributes.config);
+    if (!configAttr) {
+      this.dispatch(AgentEvent.NO_CONFIG);
+      return;
     }
 
-    private stopTts() {
-      this.scheduledPlaybackSources.forEach((source) => source.stop());
-      this.scheduledPlaybackSources.clear();
-      this.startTime = -1;
+    if (!this.micContext || !this.ttsContext || !this.ttsAnalyser) {
+      this.dispatch(AgentEvent.FAILED_SETUP);
+      return;
     }
 
-    private async clearMicrophone() {
-      this.microphone?.mediaStream.getTracks().forEach((t) => t.stop());
-      this.microphone = null;
-    }
+    await this.resumeContext();
 
-    private clearSocket(reason?: string) {
-      return new Promise<void>((resolve) => {
-        if (this.socket?.readyState === WebSocket.OPEN) {
-          this.socket.addEventListener("close", () => {
-            this.socket = null;
-            resolve();
-          });
+    const nodesAndMicAndConfigString: Result<
+      [UserMediaNodes, WebSocket, string],
+      AgentEventDetail
+    > = pairResults(
+      (await getNodes(this.micContext)).andThen((nodes) =>
+        this.connectNodes(nodes),
+      ),
+      await openWebSocket(url, apiKey),
+    ).andThen(([nodes, socket]) =>
+      getConfigString(configAttr).map((configString) => [
+        nodes,
+        socket,
+        configString,
+      ]),
+    );
 
-          if (reason) {
-            this.socket.close(1000, reason);
-          } else {
-            this.socket.close(1000);
-          }
-        } else {
+    nodesAndMicAndConfigString.match({
+      Ok: ([{ processor, analyser }, socket, configString]: [
+        UserMediaNodes,
+        WebSocket,
+        string,
+      ]) => {
+        sendVolumeUpdates(analyser, this.hoop, Hoop.Attributes.userVolume);
+
+        const sendMicToSocket = sendMicTo(socket);
+
+        socket.addEventListener("close", (event: CloseEvent) => {
+          this.dispatch(AgentEvent.SOCKET_CLOSE, event);
+          processor.removeEventListener("audioprocess", sendMicToSocket);
+          this.startIdleTimeout.clear();
+        });
+        socket.addEventListener("message", this.handleSocketMessage.bind(this));
+        this.socket = socket;
+
+        this.dispatch(AgentEvent.SOCKET_OPEN);
+        this.sendClientMessage(configString);
+        this.startIdleTimeout();
+
+        processor.addEventListener("audioprocess", sendMicToSocket);
+
+        this.hoop.setStatus(Hoop.VoiceBotStatus.Active);
+      },
+      Err: async ({ variant, detail }) => {
+        await this.disconnect();
+        this.dispatch(variant, detail);
+      },
+    });
+  }
+
+  private stopTts() {
+    this.scheduledPlaybackSources.forEach((source) => source.stop());
+    this.scheduledPlaybackSources.clear();
+    this.startTime = -1;
+  }
+
+  private async clearMicrophone() {
+    this.microphone?.mediaStream.getTracks().forEach((t) => t.stop());
+    this.microphone = null;
+  }
+
+  private clearSocket(reason?: string) {
+    return new Promise<void>((resolve) => {
+      if (this.socket?.readyState === WebSocket.OPEN) {
+        this.socket.addEventListener("close", () => {
           this.socket = null;
           resolve();
+        });
+
+        if (reason) {
+          this.socket.close(1000, reason);
+        } else {
+          this.socket.close(1000);
         }
-      });
-    }
-
-    async disconnect(reason?: string): Promise<void> {
-      this.stopTts();
-      await this.suspendContext();
-      this.disconnectNodes();
-      await this.clearSocket(reason);
-      await this.clearMicrophone();
-      this.hoop.setStatus(Hoop.VoiceBotStatus.Sleeping);
-    }
-
-    async restart() {
-      await this.disconnect();
-      this.connect();
-    }
-
-    async attributeChangedCallback(
-      name: string,
-      oldValue: string,
-      newValue: string,
-    ) {
-      switch (name) {
-        case ObservedAttributes.config:
-          if (!oldValue && newValue) {
-            await this.connect();
-          } else if (oldValue && !newValue) {
-            await this.disconnect();
-          } else if (newValue && this.socket) {
-            this.restart();
-          }
-          break;
-
-        case ObservedAttributes.idleTimeoutMs:
-          this.replaceIdleTimeout(newValue);
-          break;
-
-        default:
-          break;
+      } else {
+        this.socket = null;
+        resolve();
       }
-    }
+    });
+  }
 
-    async disconnectedCallback() {
-      await this.disconnect();
-      await this.closeContext();
-    }
+  async disconnect(reason?: string): Promise<void> {
+    this.stopTts();
+    await this.suspendContext();
+    this.disconnectNodes();
+    await this.clearSocket(reason);
+    await this.clearMicrophone();
+    this.hoop.setStatus(Hoop.VoiceBotStatus.Sleeping);
+  }
 
-    async connectedCallback() {
-      this.hoop.setAttribute(Hoop.Attributes.agentVolume, "0");
-      this.hoop.setAttribute(Hoop.Attributes.userVolume, "0");
-      this.hoop.setStatus(Hoop.VoiceBotStatus.NotStarted);
-      this.hoop.setAttribute(
-        "height",
-        this.getAttribute(Attributes.height) ?? "200",
-      );
-      this.hoop.setAttribute(
-        "width",
-        this.getAttribute(Attributes.width) ?? "300",
-      );
-      this.appendChild(this.hoop);
+  async restart() {
+    await this.disconnect();
+    this.connect();
+  }
 
-      this.replaceIdleTimeout(
-        this.getAttribute(ObservedAttributes.idleTimeoutMs),
-      );
+  async attributeChangedCallback(
+    name: string,
+    oldValue: string,
+    newValue: string,
+  ) {
+    switch (name) {
+      case ObservedAttributes.config:
+        if (!oldValue && newValue) {
+          await this.connect();
+        } else if (oldValue && !newValue) {
+          await this.disconnect();
+        } else if (newValue && this.socket) {
+          this.restart();
+        }
+        break;
+
+      case ObservedAttributes.idleTimeoutMs:
+        this.replaceIdleTimeout(newValue);
+        break;
+
+      default:
+        break;
     }
-  },
-);
+  }
+
+  async disconnectedCallback() {
+    await this.disconnect();
+    await this.closeContext();
+  }
+
+  async connectedCallback() {
+    this.hoop.setAttribute(Hoop.Attributes.agentVolume, "0");
+    this.hoop.setAttribute(Hoop.Attributes.userVolume, "0");
+    this.hoop.setStatus(Hoop.VoiceBotStatus.NotStarted);
+    this.hoop.setAttribute(
+      "height",
+      this.getAttribute(Attributes.height) ?? "200",
+    );
+    this.hoop.setAttribute(
+      "width",
+      this.getAttribute(Attributes.width) ?? "300",
+    );
+    this.appendChild(this.hoop);
+
+    this.replaceIdleTimeout(
+      this.getAttribute(ObservedAttributes.idleTimeoutMs),
+    );
+  }
+}
+customElements.define("deepgram-agent", AgentElement);
