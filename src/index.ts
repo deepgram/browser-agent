@@ -8,6 +8,8 @@ import {
   createAnalyser,
 } from "./audio";
 
+export { AudioContextClass, firstChannelToArrayBuffer, normalizeVolume };
+
 enum AgentEvent {
   NO_KEY = "no key",
   NO_URL = "no url",
