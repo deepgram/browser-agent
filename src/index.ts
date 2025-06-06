@@ -29,12 +29,10 @@ enum AgentEvent {
 type AgentEventDetail = { variant: AgentEvent; detail?: object };
 
 enum MessageType {
-  /** first detection of user speech */
+  /** First detection of user speech */
   UserStartedSpeaking = "UserStartedSpeaking",
-  /** EOT model decides the user's ended their turn */
-  EndOfThought = "EndOfThought",
-  /** Agent audio starts coming across the socket */
-  AgentStartedSpeaking = "AgentStartedSpeaking",
+  /** Transcripts. Occurs at the beginning of agent phrases, and the END of user phrases */
+  ConversationText = "ConversationText",
   /** All agent audio is sent (different from TTS being complete!) */
   AgentAudioDone = "AgentAudioDone",
 }
@@ -251,7 +249,6 @@ export class AgentElement extends HTMLElement {
   sendClientMessage(message: ArrayBuffer | string): void {
     if (this.socket?.readyState === WebSocket.OPEN) {
       this.socket.send(message);
-      // Would consumers like us to emit something when audio is sent?
       if (typeof message === "string") {
         this.dispatch(AgentEvent.CLIENT_MESSAGE, JSON.parse(message));
       }
@@ -375,11 +372,12 @@ export class AgentElement extends HTMLElement {
             this.stopTts();
             this.startIdleTimeout.clear();
             break;
-          case MessageType.EndOfThought:
-            this.clearActiveSenderIf(Sender.User);
-            break;
-          case MessageType.AgentStartedSpeaking:
-            this.activeSender = Sender.Agent;
+          case MessageType.ConversationText:
+            if (data.role === "user") {
+              this.clearActiveSenderIf(Sender.User);
+            } else if (data.role === "assistant") {
+              this.activeSender = Sender.Agent;
+            }
             break;
           case MessageType.AgentAudioDone:
             this.clearActiveSenderIf(Sender.Agent);
