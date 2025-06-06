@@ -163,6 +163,7 @@ enum Attributes {
   url = "url",
   width = "width",
   height = "height",
+  outputSampleRate = "output-sample-rate",
 }
 
 enum ObservedAttributes {
@@ -208,12 +209,11 @@ export class AgentElement extends HTMLElement {
       }
       this.ttsContext = new AudioContextClass({
         latencyHint: "interactive",
-        // might be nice to delegate to the machine here, but the /agent API
-        // doesn't seem to tolerate a 44.1k sample rate for output
+        // stick to 48000 to keep echo cancellation working in Firefox
+        // we may be resampling from accepted API output sample rates to get here
         sampleRate: 48000,
       });
       this.ttsAnalyser = createAnalyser(this.ttsContext);
-      // this.ttsAnalyser.connect(this.ttsContext.destination);
 
       this.micContext = new AudioContextClass();
 
@@ -302,6 +302,12 @@ export class AgentElement extends HTMLElement {
     if (this.ttsContext) await this.ttsContext.close();
   }
 
+  private outputSampleRate(): number {
+    const configured = Number(this.getAttribute(Attributes.outputSampleRate));
+
+    return Number.isNaN(configured) ? 24000 : configured;
+  }
+
   private playAudio(data: ArrayBuffer) {
     if (!this.ttsAnalyser) return;
     const { context } = this.ttsAnalyser;
@@ -312,7 +318,11 @@ export class AgentElement extends HTMLElement {
       return;
     }
 
-    const buffer = context.createBuffer(1, audioDataView.length, 48000);
+    const buffer = context.createBuffer(
+      1,
+      audioDataView.length,
+      this.outputSampleRate(),
+    );
     const channelData = buffer.getChannelData(0);
 
     // Convert linear16 PCM to float [-1, 1]

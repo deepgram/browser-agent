@@ -33,6 +33,7 @@ Then, render it where you like!
       height="300"
       width="300"
       idle-timeout-ms="10000"
+      output-sample-rate="24000"
     ></deepgram-agent>
   </body>
 ```
@@ -65,6 +66,9 @@ Attributes section.
 - `idle-timeout-ms` (optional): how long to wait for user idleness before closing the socket
   - Timer starts whenever the user is expected to speak (meaning right when opening the connection,
     and right after each `AgentAudioDone` event).
+- `output-sample-rate`: the output sample rate you'd like for playback
+  - Should be the same as the output rate you've got in your Settings object. Unless you're trying
+    to have a little fun.
 
 ### Properties
 
