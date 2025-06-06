@@ -1,6 +1,11 @@
 # Browser Agent
 
-An experimental web component for integrating with Deepgram's Voice Agent API in a browser environment. Manages both the microphone and the websocket. Add it to any page and get chatting!
+A pair of experimental web components for integrating with Deepgram's Voice Agent API in a browser environment.
+
+- The agent component is an all-in-one web component that manages the microphone, websocket, and
+  animation. Add it to any page and get chatting!
+- The hoop component is the animation, standalone. More useful when you've got your own rules for
+  socket integration, and just want the look and feel!
 
 ## Installation
 
@@ -10,7 +15,7 @@ Install via github by adding to your package.json dependencies:
   "@deepgram/browser-agent": "deepgram/browser-agent#main",
 ```
 
-## Basic usage
+## Using the main component
 
 Import the library anywhere for the component to be registered to `deepgram-agent`:
 
@@ -109,6 +114,37 @@ disconnect(reason?: string): Promise<void> {}
 ```
 
 Use this to explicitly disconnect. Prefer to handle this by _removing_ the `config` attribute.
+
+## Using the hoop component
+
+The animation alone is available as a granular import, automatically registered as `deepgram-hoop`:
+
+```js
+import "@deepgram/browser-agent/hoop";
+```
+
+Then, render it where you like!
+
+```html
+  <body>
+    <deepgram-hoop
+      id="dg-hoop"
+      height="300"
+      width="300"
+      status="active"
+    ></deepgram-hoop>
+  </body>
+```
+
+### Feeding audio data
+
+The hoop component applies some size oscillation based on audio information:
+
+- The output, i.e. agent audio (`agent-volume` attribute) expands
+- The input, i.e. user audio (`user-volume` attribute) collapses
+
+To ease jitter, each drawn arc trails behind a leader. You must provide amplitude data for both the
+user and agent on a per-frame basis. See the `sendVolumeUpdates` function for a working example.
 
 ## Contributing
 

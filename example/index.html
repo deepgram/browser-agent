@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DG Agent Dev</title>
+    <style>
+      body {
+        background-color: #0B0B0C;
+        color: #FBFBFF;
+        font-family: sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <script type="module" src="/src/index.ts"></script>
+    <script type="module" src="/example/setup.ts"></script>
+
+    <h2>deepgram-agent</h2>
+    <deepgram-agent
+      id="agent"
+      url="wss://sts.sandbox.deepgram.com/agent"
+      idle-timeout-ms="30000"
+    ></deepgram-agent>
+    <button id="run">Run</button>
+    <h2>deepgram-hoop (standalone animation)</h2>
+    <deepgram-hoop
+      id="hoop"
+      status="active"
+      agentVolume="0"
+      userVolume="0"
+      width="300"
+      height="300"
+    ></deepgram-hoop>
+    <div style="display: flex; gap: 1rem;">
+      <span style="color: white;">Status:</span>
+      <button id="active">Active</button>
+      <button id="sleeping">Sleeping</button>
+      <button id="not-started">Not Started</button>
+    </div>
+  </body>
+</html>

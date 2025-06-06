@@ -226,8 +226,8 @@ enum Color {
   transparent = "transparent",
 }
 
-enum Attributes {
-  orbState = "orb-state",
+export enum Attributes {
+  status = "status",
   agentVolume = "agent-volume",
   userVolume = "user-volume",
 }
@@ -366,8 +366,8 @@ const draw = (ctx: Context, shape: Shape, last: number, now: number): void => {
 };
 
 // How completely to deflate.
-const deflationDepth = (orbState: string): number => {
-  switch (orbState) {
+const deflationDepth = (status: string): number => {
+  switch (status) {
     case VoiceBotStatus.Active:
       return 0;
     case VoiceBotStatus.Sleeping:
@@ -380,8 +380,8 @@ const deflationDepth = (orbState: string): number => {
 };
 
 // How far (in radians) to tip in each direction.
-const rockingAngle = (orbState: string): number => {
-  switch (orbState) {
+const rockingAngle = (status: string): number => {
+  switch (status) {
     case VoiceBotStatus.Active:
       return pi(1 / 15);
     case VoiceBotStatus.Sleeping:
@@ -394,8 +394,8 @@ const rockingAngle = (orbState: string): number => {
 };
 
 // How quickly time moves forward. 1 means "1 second per real second", 0.5 means "1 second per 2 real seconds".
-const speedOf = (orbState: string): number => {
-  switch (orbState) {
+const speedOf = (status: string): number => {
+  switch (status) {
     case VoiceBotStatus.Active:
       return 1;
     case VoiceBotStatus.Sleeping:
@@ -458,106 +458,114 @@ const transition = (
   }
 };
 
-customElements.define(
-  "deepgram-hal",
-  class extends HTMLElement {
-    canvas: HTMLCanvasElement;
+const elementName = "deepgram-hoop";
 
-    shape: Shape;
+export class Hoop extends HTMLElement {
+  private canvas: HTMLCanvasElement;
 
-    constructor() {
-      super();
-      this.canvas = document.createElement("canvas");
-      this.shape = {
-        generation: 0,
-        time: 0,
-        speed: speedOf(VoiceBotStatus.NotStarted),
-        rockingAngle: rockingAngle(VoiceBotStatus.NotStarted),
-        deflation: deflationDepth(VoiceBotStatus.NotStarted),
-        agentNoise: Array(
-          LINE_COUNT * CHATTER_FRAME_LAG + CHATTER_WINDOW_SIZE,
-        ).fill(0),
-        userNoise: Array(
-          LINE_COUNT * CHATTER_FRAME_LAG + CHATTER_WINDOW_SIZE,
-        ).fill(0),
-        end: false,
-      };
+  private shape: Shape;
+
+  static create(): Hoop {
+    return document.createElement(elementName) as Hoop;
+  }
+
+  setStatus(status: VoiceBotStatus) {
+    this.setAttribute(Attributes.status, status);
+  }
+
+  constructor() {
+    super();
+    this.canvas = document.createElement("canvas");
+    this.shape = {
+      generation: 0,
+      time: 0,
+      speed: speedOf(VoiceBotStatus.NotStarted),
+      rockingAngle: rockingAngle(VoiceBotStatus.NotStarted),
+      deflation: deflationDepth(VoiceBotStatus.NotStarted),
+      agentNoise: Array(
+        LINE_COUNT * CHATTER_FRAME_LAG + CHATTER_WINDOW_SIZE,
+      ).fill(0),
+      userNoise: Array(
+        LINE_COUNT * CHATTER_FRAME_LAG + CHATTER_WINDOW_SIZE,
+      ).fill(0),
+      end: false,
+    };
+  }
+
+  connectedCallback() {
+    const status =
+      this.getAttribute(Attributes.status) || VoiceBotStatus.NotStarted;
+    const agentVolume = Number(this.getAttribute(Attributes.agentVolume)) || 0;
+    const userVolume = Number(this.getAttribute(Attributes.userVolume)) || 0;
+    this.canvas.width = Number(this.getAttribute("width")) || 0;
+    this.canvas.height = Number(this.getAttribute("height")) || 0;
+
+    this.appendChild(this.canvas);
+
+    this.shape = {
+      generation: 0,
+      time: 0,
+      speed: speedOf(status),
+      rockingAngle: rockingAngle(status),
+      deflation: deflationDepth(status),
+      agentNoise: Array(
+        LINE_COUNT * CHATTER_FRAME_LAG + CHATTER_WINDOW_SIZE,
+      ).fill(agentVolume),
+      userNoise: Array(
+        LINE_COUNT * CHATTER_FRAME_LAG + CHATTER_WINDOW_SIZE,
+      ).fill(userVolume),
+      end: false,
+    };
+
+    const ctx = this.canvas.getContext("2d");
+    if (ctx) {
+      const now = performance.now();
+      requestAnimationFrame((t) => {
+        if (this.shape) draw(ctx, this.shape, now, t);
+      });
     }
+  }
 
-    connectedCallback() {
-      const orbState =
-        this.getAttribute(Attributes.orbState) || VoiceBotStatus.NotStarted;
-      const agentVolume =
-        Number(this.getAttribute(Attributes.agentVolume)) || 0;
-      const userVolume = Number(this.getAttribute(Attributes.userVolume)) || 0;
-      this.canvas.width = Number(this.getAttribute("width")) || 0;
-      this.canvas.height = Number(this.getAttribute("height")) || 0;
+  disconnectedCallback() {
+    this.shape.end = true;
+  }
 
-      this.appendChild(this.canvas);
+  static get observedAttributes() {
+    return Object.values(Attributes);
+  }
 
-      this.shape = {
-        generation: 0,
-        time: 0,
-        speed: speedOf(orbState),
-        rockingAngle: rockingAngle(orbState),
-        deflation: deflationDepth(orbState),
-        agentNoise: Array(
-          LINE_COUNT * CHATTER_FRAME_LAG + CHATTER_WINDOW_SIZE,
-        ).fill(agentVolume),
-        userNoise: Array(
-          LINE_COUNT * CHATTER_FRAME_LAG + CHATTER_WINDOW_SIZE,
-        ).fill(userVolume),
-        end: false,
-      };
-
-      const ctx = this.canvas.getContext("2d");
-      if (ctx) {
-        const now = performance.now();
-        requestAnimationFrame((t) => {
-          if (this.shape) draw(ctx, this.shape, now, t);
+  attributeChangedCallback(name: string, _: string, newValue: string) {
+    switch (name) {
+      case Attributes.status:
+        this.shape.generation += 1;
+        this.shape.speed = speedOf(newValue);
+        requestAnimationFrame((time) => {
+          const start = {
+            rockingAngle: this.shape.rockingAngle,
+            deflation: this.shape.deflation,
+            time,
+          };
+          const end = {
+            rockingAngle: rockingAngle(newValue),
+            deflation: deflationDepth(newValue),
+          };
+          transition(this.shape.generation, start, end, this.shape);
         });
-      }
+        break;
+      case Attributes.agentVolume:
+        if (Number.isNaN(Number(newValue))) break;
+        this.shape.agentNoise.shift();
+        this.shape.agentNoise.push(Number(newValue));
+        break;
+      case Attributes.userVolume:
+        if (Number.isNaN(Number(newValue))) break;
+        this.shape.userNoise.shift();
+        this.shape.userNoise.push(Number(newValue));
+        break;
+      default:
+        break;
     }
+  }
+}
 
-    disconnectedCallback() {
-      this.shape.end = true;
-    }
-
-    static get observedAttributes() {
-      return Object.values(Attributes);
-    }
-
-    attributeChangedCallback(name: string, _: string, newValue: string) {
-      switch (name) {
-        case Attributes.orbState:
-          this.shape.generation += 1;
-          this.shape.speed = speedOf(newValue);
-          requestAnimationFrame((time) => {
-            const start = {
-              rockingAngle: this.shape.rockingAngle,
-              deflation: this.shape.deflation,
-              time,
-            };
-            const end = {
-              rockingAngle: rockingAngle(newValue),
-              deflation: deflationDepth(newValue),
-            };
-            transition(this.shape.generation, start, end, this.shape);
-          });
-          break;
-        case Attributes.agentVolume:
-          if (Number.isNaN(Number(newValue))) break;
-          this.shape.agentNoise.shift();
-          this.shape.agentNoise.push(Number(newValue));
-          break;
-        case Attributes.userVolume:
-          if (Number.isNaN(Number(newValue))) break;
-          this.shape.userNoise.shift();
-          this.shape.userNoise.push(Number(newValue));
-          break;
-        default:
-          break;
-      }
-    }
-  },
-);
+customElements.define(elementName, Hoop);

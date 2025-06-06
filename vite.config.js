@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import { createHtmlPlugin } from "vite-plugin-html";
 import { resolve } from "path";
+import dts from "vite-plugin-dts";
 
 const dev = () => {
   const API_KEY = process.env.DG_API_KEY;
@@ -10,22 +11,26 @@ const dev = () => {
   }
 
   return {
+    define: {
+      API_KEY: JSON.stringify(API_KEY),
+    },
     plugins: createHtmlPlugin({
-      inject: {
-        data: {
-          API_KEY,
-        },
-      },
+      template: "example/index.html",
     }),
-    resolve: { alias: { src: resolve("src/") } },
   };
 };
 
 const prod = () => ({
   build: {
-    lib: { entry: resolve(__dirname, "src/index.ts"), formats: ["es"] },
+    lib: {
+      entry: [
+        resolve(__dirname, "src/index.ts"),
+        resolve(__dirname, "src/hoop.ts"),
+      ],
+      formats: ["es"],
+    },
   },
-  resolve: { alias: { src: resolve("src/") } },
+  plugins: [dts()],
 });
 
 // https://vitejs.dev/config/
