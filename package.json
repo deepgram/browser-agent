@@ -24,6 +24,6 @@
   },
   "dependencies": {
     "debounce": "^2.2.0",
-    "true-myth": "^8.5.2"
+    "true-myth": "^9.0.1"
   }
 }
