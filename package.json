@@ -1,6 +1,6 @@
 {
   "name": "@deepgram/browser-agent",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.1",
   "description": "A browser-compatible integration with the Deepgram Voice Agent API.",
   "main": "dist/index.mjs",
   "exports": {
@@ -8,7 +8,7 @@
     "./hoop": "dist/hoop.mjs"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "vite build",
     "test": "echo \"Error: no test specified\" && exit 1",
     "vite": "vite",
     "tsc": "tsc"
@@ -25,5 +25,8 @@
   "dependencies": {
     "debounce": "^2.2.0",
     "true-myth": "^9.0.1"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

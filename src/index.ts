@@ -29,12 +29,10 @@ enum AgentEvent {
 type AgentEventDetail = { variant: AgentEvent; detail?: object };
 
 enum MessageType {
-  /** first detection of user speech */
+  /** First detection of user speech */
   UserStartedSpeaking = "UserStartedSpeaking",
-  /** EOT model decides the user's ended their turn */
-  EndOfThought = "EndOfThought",
-  /** Agent audio starts coming across the socket */
-  AgentStartedSpeaking = "AgentStartedSpeaking",
+  /** Transcripts. Occurs at the beginning of agent phrases, and the END of user phrases */
+  ConversationText = "ConversationText",
   /** All agent audio is sent (different from TTS being complete!) */
   AgentAudioDone = "AgentAudioDone",
 }
@@ -163,6 +161,7 @@ enum Attributes {
   url = "url",
   width = "width",
   height = "height",
+  outputSampleRate = "output-sample-rate",
 }
 
 enum ObservedAttributes {
@@ -208,12 +207,11 @@ export class AgentElement extends HTMLElement {
       }
       this.ttsContext = new AudioContextClass({
         latencyHint: "interactive",
-        // might be nice to delegate to the machine here, but the /agent API
-        // doesn't seem to tolerate a 44.1k sample rate for output
+        // stick to 48000 to keep echo cancellation working in Firefox
+        // we may be resampling from accepted API output sample rates to get here
         sampleRate: 48000,
       });
       this.ttsAnalyser = createAnalyser(this.ttsContext);
-      // this.ttsAnalyser.connect(this.ttsContext.destination);
 
       this.micContext = new AudioContextClass();
 
@@ -251,7 +249,6 @@ export class AgentElement extends HTMLElement {
   sendClientMessage(message: ArrayBuffer | string): void {
     if (this.socket?.readyState === WebSocket.OPEN) {
       this.socket.send(message);
-      // Would consumers like us to emit something when audio is sent?
       if (typeof message === "string") {
         this.dispatch(AgentEvent.CLIENT_MESSAGE, JSON.parse(message));
       }
@@ -302,6 +299,12 @@ export class AgentElement extends HTMLElement {
     if (this.ttsContext) await this.ttsContext.close();
   }
 
+  private outputSampleRate(): number {
+    const configured = Number(this.getAttribute(Attributes.outputSampleRate));
+
+    return Number.isNaN(configured) ? 24000 : configured;
+  }
+
   private playAudio(data: ArrayBuffer) {
     if (!this.ttsAnalyser) return;
     const { context } = this.ttsAnalyser;
@@ -312,7 +315,11 @@ export class AgentElement extends HTMLElement {
       return;
     }
 
-    const buffer = context.createBuffer(1, audioDataView.length, 48000);
+    const buffer = context.createBuffer(
+      1,
+      audioDataView.length,
+      this.outputSampleRate(),
+    );
     const channelData = buffer.getChannelData(0);
 
     // Convert linear16 PCM to float [-1, 1]
@@ -365,11 +372,12 @@ export class AgentElement extends HTMLElement {
             this.stopTts();
             this.startIdleTimeout.clear();
             break;
-          case MessageType.EndOfThought:
-            this.clearActiveSenderIf(Sender.User);
-            break;
-          case MessageType.AgentStartedSpeaking:
-            this.activeSender = Sender.Agent;
+          case MessageType.ConversationText:
+            if (data.role === "user") {
+              this.clearActiveSenderIf(Sender.User);
+            } else if (data.role === "assistant") {
+              this.activeSender = Sender.Agent;
+            }
             break;
           case MessageType.AgentAudioDone:
             this.clearActiveSenderIf(Sender.Agent);
