@@ -377,6 +377,7 @@ export class AgentElement extends HTMLElement {
               this.clearActiveSenderIf(Sender.User);
             } else if (data.role === "assistant") {
               this.activeSender = Sender.Agent;
+              this.startIdleTimeout.clear();
             }
             break;
           case MessageType.AgentAudioDone:
