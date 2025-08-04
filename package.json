@@ -1,6 +1,6 @@
 {
   "name": "@deepgram/browser-agent",
-  "version": "0.1.0-alpha.2",
+  "version": "0.1.0",
   "description": "A browser-compatible integration with the Deepgram Voice Agent API.",
   "main": "dist/index.mjs",
   "exports": {
