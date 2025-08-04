@@ -4,8 +4,8 @@
   "description": "A browser-compatible integration with the Deepgram Voice Agent API.",
   "main": "dist/index.mjs",
   "exports": {
-    ".": "dist/index.mjs",
-    "./hoop": "dist/hoop.mjs"
+    ".": "./dist/index.mjs",
+    "./hoop": "./dist/hoop.mjs"
   },
   "scripts": {
     "build": "vite build",
