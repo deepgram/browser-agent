@@ -8,6 +8,14 @@ document.getElementById("run")?.addEventListener("click", function run() {
   } else {
     agent.setAttribute("config", JSON.stringify(agentConfig));
   }
+
+  agent.addEventListener("structured message", (message) => {
+    const { detail = {} } = message as CustomEvent;
+    if (detail.type === "Error") {
+      console.error(detail);
+      agent.removeAttribute("config");
+    }
+  });
 });
 
 const hoop = document.getElementById("hoop");
@@ -18,7 +26,7 @@ const hoop = document.getElementById("hoop");
 });
 
 const agentConfig = {
-  type: "SettingsConfiguration",
+  type: "Settings",
   audio: {
     input: {
       encoding: "linear16",
@@ -32,27 +40,25 @@ const agentConfig = {
   },
   agent: {
     listen: {
-      model: "nova-2",
+      provider: {
+        type: "deepgram",
+        model: "nova-2",
+      },
     },
     speak: {
-      model: "aura-asteria-en",
+      provider: {
+        type: "deepgram",
+        model: "aura-asteria-en",
+      },
     },
     think: {
-      model: "gpt-4o-mini",
       provider: {
         type: "open_ai",
+        model: "gpt-4o-mini",
       },
-      instructions:
+      prompt:
         "You are a helpful voice assistant created by Deepgram. Your responses should be friendly, human-like, and conversational. Always keep your answers concise, limited to 1-2 sentences and no more than 120 characters.\n\nWhen responding to a user's message, follow these guidelines:\n- If the user's message is empty, respond with an empty message.\n- Ask follow-up questions to engage the user, but only one question at a time.\n- Keep your responses unique and avoid repetition.\n- If a question is unclear or ambiguous, ask for clarification before answering.\n- If asked about your well-being, provide a brief response about how you're feeling.\n\nRemember that you have a voice interface. You can listen and speak, and all your responses will be spoken aloud.",
     },
-  },
-  context: {
-    messages: [
-      {
-        content: "Hello, how can I help you?",
-        role: "assistant",
-      },
-    ],
-    replay: true,
+    greeting: "Hello, how can I help you?",
   },
 };
