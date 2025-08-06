@@ -29,7 +29,7 @@ Then, render it where you like!
   <body>
     <deepgram-agent
       id="dg-agent"
-      api-url="wss://sts.sandbox.deepgram.com/agent"
+      url="wss://sts.sandbox.deepgram.com/agent"
       height="300"
       width="300"
       idle-timeout-ms="10000"
@@ -61,7 +61,7 @@ Attributes section.
 - `height` (optional, default = `"0"`): the height of the canvas for agent animation
   - The animation will always take up a (roughly) square area, so this should typically be the same
     value as `width`.
-- `api-url` (required): The API url
+- `url` (required): The API url
   - Chances are you'll set this to `"https://api.deepgram.com/v1/agent"`!
 - `idle-timeout-ms` (optional): how long to wait for user idleness before closing the socket
   - Timer starts whenever the user is expected to speak (meaning right when opening the connection,
