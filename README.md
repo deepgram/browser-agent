@@ -61,6 +61,10 @@ Attributes section.
 - `height` (optional, default = `"0"`): the height of the canvas for agent animation
   - The animation will always take up a (roughly) square area, so this should typically be the same
     value as `width`.
+- `auth-scheme` (optional, default = `"bearer"`): the auth scheme to use with your token
+  - Use `bearer` for the Deepgram API when working with token-based authentication. For local
+    development you may find it more convenient to use an API key (`token` scheme). **Never use API
+    keys in a production browser application!**
 - `url` (required): The API url
   - Chances are you'll set this to `"https://api.deepgram.com/v1/agent"`!
 - `idle-timeout-ms` (optional): how long to wait for user idleness before closing the socket
@@ -72,7 +76,11 @@ Attributes section.
 
 ### Properties
 
-- `apiKey` (required): the key to use for accessing the Deepgram /agent API.
+- `token` (optional): the token to use for accessing the Deepgram /agent API. See the [token-based
+  auth docs](https://developers.deepgram.com/guides/fundamentals/token-based-authentication) for how to
+  create safe-for-browser tokens.
+  - If not provided, the `auth-scheme` will also be ignored. Only makes sense if your API URL is
+    unauthenticated.
 
 ### Events
 
@@ -81,9 +89,10 @@ to run into some than others.
 
 #### Common events
 
-- `"no key"`: emitted when trying to connect and API key is missing
 - `"no url"`: emitted when trying to connect and API url is missing
 - `"no config"`: emitted when trying to connect and config is missing
+- `"invalid auth"`: emitted when trying to connect and the WebSocket rejects the auth scheme or
+  token
 - `"socket open"`: socket successfully opened
 - `"socket close"`: socket successfully closed
 - `"connection timeout"`: socket failed to connect due to a timeout (10s)

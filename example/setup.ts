@@ -1,7 +1,7 @@
 import { AgentElement } from "../src";
 
 const agent = document.getElementById("agent") as AgentElement;
-agent.apiKey = API_KEY;
+agent.token = API_KEY;
 document.getElementById("run")?.addEventListener("click", function run() {
   if (agent.getAttribute("config")) {
     agent.removeAttribute("config");
@@ -15,6 +15,11 @@ document.getElementById("run")?.addEventListener("click", function run() {
       console.error(detail);
       agent.removeAttribute("config");
     }
+  });
+
+  agent.addEventListener("invalid auth", (message) => {
+    const { detail = {} } = message as CustomEvent;
+    console.error("Invalid auth.", detail);
   });
 });
 
