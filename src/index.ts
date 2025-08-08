@@ -11,7 +11,7 @@ import {
 export { AudioContextClass, firstChannelToArrayBuffer, normalizeVolume };
 
 enum AgentEvent {
-  NO_KEY = "no key",
+  INVALID_AUTH = "invalid auth",
   NO_URL = "no url",
   NO_CONFIG = "no config",
   EMPTY_AUDIO = "empty audio",
@@ -118,12 +118,19 @@ const sendVolumeUpdates = (
   getVolume();
 };
 
-const openWebSocket = async (
-  url: string,
-  apiKey: string,
-): Promise<Result<WebSocket, AgentEventDetail>> => {
+const openWebSocket = async ({
+  url,
+  scheme,
+  token,
+}: {
+  url: string;
+  scheme: string;
+  token: string | undefined;
+}): Promise<Result<WebSocket, AgentEventDetail>> => {
   try {
-    const socket = new WebSocket(url, ["token", apiKey]);
+    const socket = token
+      ? new WebSocket(url, [scheme, token])
+      : new WebSocket(url);
     socket.binaryType = "arraybuffer";
 
     // The following promise can resolve in one of several different ways depending on what happens
@@ -147,8 +154,18 @@ const openWebSocket = async (
         10000,
       );
     });
-  } catch {
-    return Result.err({ variant: AgentEvent.FAILED_SETUP });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "SyntaxError") {
+      return Result.err({
+        variant: AgentEvent.INVALID_AUTH,
+        detail: { scheme, token },
+      });
+    } else {
+      return Result.err({
+        variant: AgentEvent.FAILED_SETUP,
+        detail: { thrown: e },
+      });
+    }
   }
 };
 
@@ -162,6 +179,7 @@ enum Attributes {
   width = "width",
   height = "height",
   outputSampleRate = "output-sample-rate",
+  authScheme = "auth-scheme",
 }
 
 enum ObservedAttributes {
@@ -183,7 +201,7 @@ export class AgentElement extends HTMLElement {
 
   private hoop: Hoop.Hoop;
 
-  apiKey: string | undefined;
+  token: string | undefined;
 
   private activeSender: Sender | null;
 
@@ -402,11 +420,7 @@ export class AgentElement extends HTMLElement {
     // connect routine, so we're sure we have all the current values.
     await Promise.resolve();
 
-    const { apiKey } = this;
-    if (apiKey === undefined) {
-      this.dispatch(AgentEvent.NO_KEY);
-      return;
-    }
+    const { token } = this;
     const url = this.getAttribute(Attributes.url);
     if (!url) {
       this.dispatch(AgentEvent.NO_URL);
@@ -432,7 +446,11 @@ export class AgentElement extends HTMLElement {
       (await getNodes(this.micContext)).andThen((nodes) =>
         this.connectNodes(nodes),
       ),
-      await openWebSocket(url, apiKey),
+      await openWebSocket({
+        url,
+        scheme: this.getAttribute(Attributes.authScheme) ?? "bearer",
+        token,
+      }),
     ).andThen(([nodes, socket]) =>
       getConfigString(configAttr).map((configString) => [
         nodes,

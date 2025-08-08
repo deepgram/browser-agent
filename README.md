@@ -61,6 +61,10 @@ Attributes section.
 - `height` (optional, default = `"0"`): the height of the canvas for agent animation
   - The animation will always take up a (roughly) square area, so this should typically be the same
     value as `width`.
+- `auth-scheme` (optional, default = `"bearer"`): the auth scheme to use with your token
+  - `bearer` is what you want with the Deepgram API, to work with token-based auth. You may find it
+    more convenient to use an API key (`token` scheme) for local dev. But never use API keys in
+    a production browser application!
 - `url` (required): The API url
   - Chances are you'll set this to `"https://api.deepgram.com/v1/agent"`!
 - `idle-timeout-ms` (optional): how long to wait for user idleness before closing the socket
@@ -72,7 +76,11 @@ Attributes section.
 
 ### Properties
 
-- `apiKey` (required): the key to use for accessing the Deepgram /agent API.
+- `token` (optional): the token to use for accessing the Deepgram /agent API. See the [token-based
+  auth docs](https://developers.deepgram.com/reference/token-based-auth-api/grant-token) for how to
+  create safe-for-browser tokens.
+  - If not provided, the `auth-scheme` will also be ignored. Only makes sense if your API URL is
+    unauthenticated.
 
 ### Events
 
