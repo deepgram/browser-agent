@@ -77,7 +77,7 @@ Attributes section.
 ### Properties
 
 - `token` (optional): the token to use for accessing the Deepgram /agent API. See the [token-based
-  auth docs](https://developers.deepgram.com/reference/token-based-auth-api/grant-token) for how to
+  auth docs](https://developers.deepgram.com/guides/fundamentals/token-based-authentication) for how to
   create safe-for-browser tokens.
   - If not provided, the `auth-scheme` will also be ignored. Only makes sense if your API URL is
     unauthenticated.
