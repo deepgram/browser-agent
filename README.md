@@ -62,9 +62,9 @@ Attributes section.
   - The animation will always take up a (roughly) square area, so this should typically be the same
     value as `width`.
 - `auth-scheme` (optional, default = `"bearer"`): the auth scheme to use with your token
-  - `bearer` is what you want with the Deepgram API, to work with token-based auth. You may find it
-    more convenient to use an API key (`token` scheme) for local dev. But never use API keys in
-    a production browser application!
+  - Use `bearer` for the Deepgram API when working with token-based authentication. For local
+    development you may find it more convenient to use an API key (`token` scheme). **Never use API
+    keys in a production browser application!**
 - `url` (required): The API url
   - Chances are you'll set this to `"https://api.deepgram.com/v1/agent"`!
 - `idle-timeout-ms` (optional): how long to wait for user idleness before closing the socket
@@ -89,9 +89,10 @@ to run into some than others.
 
 #### Common events
 
-- `"no key"`: emitted when trying to connect and API key is missing
 - `"no url"`: emitted when trying to connect and API url is missing
 - `"no config"`: emitted when trying to connect and config is missing
+- `"invalid auth"`: emitted when trying to connect and the WebSocket rejects the auth scheme or
+  token
 - `"socket open"`: socket successfully opened
 - `"socket close"`: socket successfully closed
 - `"connection timeout"`: socket failed to connect due to a timeout (10s)
