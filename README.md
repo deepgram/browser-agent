@@ -29,7 +29,7 @@ Then, render it where you like!
   <body>
     <deepgram-agent
       id="dg-agent"
-      url="wss://sts.sandbox.deepgram.com/agent"
+      url="wss://agent.deepgram.com/v1/agent/converse"
       height="300"
       width="300"
       idle-timeout-ms="10000"
