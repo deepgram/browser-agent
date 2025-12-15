@@ -23,7 +23,7 @@
     "vite-plugin-html": "^3.2.2"
   },
   "dependencies": {
-    "debounce": "^2.2.0",
+    "debounce": "^3.0.0",
     "true-myth": "^9.0.1"
   },
   "engines": {
