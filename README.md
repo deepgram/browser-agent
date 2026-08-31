@@ -9,7 +9,7 @@ A pair of experimental web components for integrating with Deepgram's Voice Agen
 
 ## Status
 
-These components are experimental and pre-1.0, and interfaces may change between versions. For a production integration with the [Deepgram Voice Agent API](https://developers.deepgram.com/docs/voice-agent), the documented and supported path is the official JavaScript SDK, [`@deepgram/sdk`](https://github.com/deepgram/deepgram-js-sdk). If you want an embeddable, framework-free widget rather than a bare web component, see [`@deepgram/agents-widget`](https://github.com/deepgram/agent), which is the more recent embeddable layer.
+These components are pre-1.0, and interfaces may change between versions. If you want an embeddable, framework-free widget rather than a bare web component, see [`@deepgram/agents-widget`](https://github.com/deepgram/agent), which is the more recent embeddable layer.
 
 ## Installation
 
