@@ -7,13 +7,19 @@ A pair of experimental web components for integrating with Deepgram's Voice Agen
 - The hoop component is the animation, standalone. More useful when you've got your own rules for
   socket integration, and just want the look and feel!
 
+## Status
+
+These components are pre-1.0, and interfaces may change between versions. If you want an embeddable, framework-free widget rather than a bare web component, see [`@deepgram/agents-widget`](https://github.com/deepgram/agent), which is the more recent embeddable layer.
+
 ## Installation
 
-Install via github by adding to your package.json dependencies:
+Install from the npm registry:
 
-```json
-  "@deepgram/browser-agent": "deepgram/browser-agent#main",
+```bash
+npm install @deepgram/browser-agent
 ```
+
+Installing from a GitHub reference (for example `"@deepgram/browser-agent": "deepgram/browser-agent#main"` in your package.json dependencies) does not work: the repository does not commit its build output and has no prepare script, so a GitHub install delivers a package without its entry point.
 
 ## Using the main component
 
@@ -66,7 +72,7 @@ Attributes section.
     development you may find it more convenient to use an API key (`token` scheme). **Never use API
     keys in a production browser application!**
 - `url` (required): The API url
-  - Chances are you'll set this to `"https://api.deepgram.com/v1/agent"`!
+  - Chances are you'll set this to `"wss://agent.deepgram.com/v1/agent/converse"`, as in the example above.
 - `idle-timeout-ms` (optional): how long to wait for user idleness before closing the socket
   - Timer starts whenever the user is expected to speak (meaning right when opening the connection,
     and right after each `AgentAudioDone` event).
